@@ -158,10 +158,44 @@ sub aligned($src, Int:D $op-from, Str:D $op --> Bool:D) {
     False
 }
 
+#| No space before a comma, one space after it.
+class RakuFmt::Rule::CommaSpacing does RakuFmt::Rule {
+    method name(--> Str:D) { 'comma-spacing' }
+    method description(--> Str:D) { 'no space before a comma and one after it, in lists, arguments and signatures' }
+
+    method edits($src, % --> Iterable:D) {
+        my $text = $src.text;
+        gather {
+            my @lists;
+            @lists.push: $(.operands) for $src.nodes-of(RakuAST::ApplyListInfix)
+              .grep({ .infix.origin && $src.text-of(.infix) eq ',' });
+            @lists.push: $(.args) for $src.nodes-of(RakuAST::ArgList);
+            @lists.push: $(.parameters) for $src.nodes-of(RakuAST::Signature);
+            my %seen;
+            for @lists -> @items {
+                # Implicit parameters such as the invocant have no origin.
+                my @real = @items.grep(*.origin);
+                for @real.rotor(2 => -1) -> ($a, $b) {
+                    my ($from, $to) = $a.origin.to, $b.origin.from;
+                    next unless $from < $to && !%seen{$from}++;
+                    my $gap = $text.substr($from, $to - $from);
+                    if $gap ~~ / ^ \h* ',' \h* $ / {
+                        take self.edit($from, $to, ', ', 'comma') if $gap ne ', ';
+                    }
+                    elsif $gap ~~ / ^ (\h+) ',' / {
+                        take self.edit($from, $from + $0.chars, '', 'space before comma');
+                    }
+                }
+            }
+        }
+    }
+}
+
 package RakuFmt::Rules {
     my @builtin-rules = (
         RakuFmt::Rule::TrailingWhitespace,
         RakuFmt::Rule::InfixSpacing,
+        RakuFmt::Rule::CommaSpacing,
     ).map(*.new);
 
     #| The rules that come with rakufmt, in the order they run.

@@ -1,0 +1,17 @@
+use v6.e.PREVIEW;
+use Test;
+use RakuFmt;
+use RakuFmt::Rules;
+
+sub fmt(Str $text --> Str:D) {
+    RakuFmt.new(:rules(RakuFmt::Rule::CommaSpacing.new)).format($text).formatted
+}
+
+is fmt("foo(1,2 , 3);\nsub foo(*\@a) \{ }\n"), "foo(1, 2, 3);\nsub foo(*\@a) \{ }\n",
+  'arguments get one space after each comma and none before';
+is fmt("sub f(\$a,\$b) \{ }\n"), "sub f(\$a, \$b) \{ }\n",
+  'parameters get one space after each comma';
+is fmt("my \@a = 1,\n  2;\n"), "my \@a = 1,\n  2;\n",
+  'a comma at the end of a line is kept';
+
+done-testing;
