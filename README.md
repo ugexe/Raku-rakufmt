@@ -13,6 +13,7 @@ possible.
 | `trailing-whitespace` | strips spaces at the end of lines and ends the file with one newline, except inside strings and heredoc bodies |
 | `infix-spacing` | one space around infix operators, `=` in declarations and parameter defaults, and `=>`. Ranges stay tight, a line break next to an operator stays, and padding that lines an operator up with a nearby line stays |
 | `comma-spacing` | no space before a comma and one after it, in lists, arguments and signatures |
+| `signature-wrap` | a routine signature that makes its line longer than `--width` gets one parameter per line |
 
 ## How it works
 

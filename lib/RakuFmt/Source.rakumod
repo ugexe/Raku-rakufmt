@@ -182,6 +182,11 @@ class RakuFmt::Source {
         ($from ..^ $to).first({ $!literal[$_] }).defined
     }
 
+    #| True if a comment starts in from..^to.
+    method has-comment(Int:D $from, Int:D $to --> Bool:D) {
+        so @!comments.first({ $from <= .from < $to })
+    }
+
     #| Zero based line number of a position.
     method line-of(Int:D $pos --> Int:D) {
         my ($lo, $hi) = 0, @!line-starts.end;

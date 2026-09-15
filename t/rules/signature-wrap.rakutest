@@ -1,0 +1,16 @@
+use v6.e.PREVIEW;
+use Test;
+use RakuFmt;
+use RakuFmt::Rules;
+
+sub fmt(Str $text --> Str:D) {
+    RakuFmt.new(:rules(RakuFmt::Rule::SignatureWrap.new), :options(:width(40))).format($text).formatted
+}
+
+is fmt("sub a-long-name(Str \$first, Int :\$second = 42, Bool :\$third = False --> Str) \{ }\n"),
+  "sub a-long-name(\n    Str \$first,\n    Int :\$second = 42,\n    Bool :\$third = False,\n    --> Str\n) \{ }\n",
+  'a signature too long for its line gets one parameter per line';
+is fmt("sub f(\$a, \$b) \{ }\n"), "sub f(\$a, \$b) \{ }\n",
+  'a signature that fits is left alone';
+
+done-testing;

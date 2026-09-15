@@ -191,11 +191,54 @@ class RakuFmt::Rule::CommaSpacing does RakuFmt::Rule {
     }
 }
 
+#| Put each parameter of a signature that makes its line too long on a line
+#| of its own.
+class RakuFmt::Rule::SignatureWrap does RakuFmt::Rule {
+    method name(--> Str:D) { 'signature-wrap' }
+    method description(--> Str:D) { 'wrap a routine signature that is too long, one parameter per line' }
+
+    method edits($src, %options --> Iterable:D) {
+        my $text  = $src.text;
+        my $width = %options<width> // 80;
+        my $step  = %options<indent> // 4;
+        gather for $src.nodes-of(RakuAST::Routine) -> $routine {
+            my $sig = $routine.signature;
+            next unless $sig && $sig.origin;
+            my ($from, $to) = $sig.origin.from, $sig.origin.to;
+            next unless $text.substr($from - 1, 1) eq '(' && $text.substr($to, 1) eq ')';
+
+            my $line = $src.line-of($from);
+            next unless $src.line-of($to) == $line;
+            next unless $src.line-end($line) - $src.line-start($line) > $width;
+            next if $src.has-comment($from, $to);
+
+            my @params = $sig.parameters.grep(*.origin);
+            next unless @params >= 2;
+            # Only plain comma separated parameters.
+            next unless all(@params.rotor(2 => -1).map(-> ($a, $b) {
+                $text.substr($a.origin.to, $b.origin.from - $a.origin.to) ~~ / ^ \h* ',' \h* $ /
+            }));
+            my $returns = $text.substr(@params.tail.origin.to, $to - @params.tail.origin.to).trim;
+            next unless $returns eq '' || $returns.starts-with('-->');
+
+            my $base = $text.substr($src.line-start($line)).match(/ ^ \h* /).Str;
+            my $pad  = $base ~ ' ' x $step;
+            my $new  = "(\n"
+              ~ @params.map({ $pad ~ $src.text-of($_) ~ ",\n" }).join
+              ~ ($returns ?? "$pad$returns\n" !! '')
+              ~ "$base)";
+            take self.edit($from - 1, $to + 1, $new,
+              "signature of `{$routine.name ?? $src.text-of($routine.name) !! 'anon'}` is longer than $width columns");
+        }
+    }
+}
+
 package RakuFmt::Rules {
     my @builtin-rules = (
         RakuFmt::Rule::TrailingWhitespace,
         RakuFmt::Rule::InfixSpacing,
         RakuFmt::Rule::CommaSpacing,
+        RakuFmt::Rule::SignatureWrap,
     ).map(*.new);
 
     #| The rules that come with rakufmt, in the order they run.
