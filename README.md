@@ -11,6 +11,7 @@ possible.
 ```
 raku -I. bin/rakufmt examples/messy.raku            # print the formatted file
 raku -I. bin/rakufmt --check examples/              # exit 1 if anything would change
+raku -I. bin/rakufmt --list-rules
 raku -I. bin/rakufmt --help
 ```
 
@@ -68,6 +69,8 @@ class Shape {
 | `indent` | indents by the blocks and brackets a line is in. A continuation line keeps its offset from the start of its statement. Heredoc bodies, multi-line strings, comments and Pod keep their own indentation |
 | `align-comments` | lines up trailing comments on consecutive lines |
 | `single-quotes` | off by default: `"..."` with nothing to interpolate or escape becomes `'...'` |
+
+Turn rules on and off with `--enable-rule=single-quotes` and `--disable-rule=indent --disable-rule=align-comments`.
 
 ## How it works
 

@@ -35,6 +35,16 @@ subtest 'a number option takes the next argument as its value' => {
     is %r<exitcode>, 2, '--indent without a value is a usage error';
 }
 
+subtest 'rules are named on the command line' => {
+    my %r = rakufmt('--enable-rule', 'single-quotes', '--disable-rule=indent', '--disable-rule=align-comments', '--check', $tidy);
+    is %r<exitcode>, 1, '--enable-rule with a separate value turns on a rule';
+    is %r<out>, "$tidy would be reformatted\n", 'the enabled rule changes the tidy example';
+
+    %r = rakufmt('--enable-rule=nope', $messy);
+    is %r<exitcode>, 2, 'an unknown rule is a usage error';
+    ok %r<err>.starts-with('Usage:'), 'an unknown rule prints the usage';
+}
+
 subtest '--help' => {
     my %r = rakufmt('--help');
     is %r<exitcode>, 0, '--help exits 0';

@@ -2,6 +2,14 @@ use v6.e.PREVIEW;
 use RakuFmt;
 use RakuFmt::Rules;
 
+#| The name of a rule, as --list-rules shows it.
+my subset RuleName of Str where * eq any RakuFmt::Rules::builtin-rules().map(*.name);
+
+#| The names given by the repeated uses of an option such as --enable-rule.
+#| An option that is not given binds the type object, which has no names to
+#| check.
+my subset RuleNames of Positional where { !.defined || .all ~~ RuleName };
+
 #| A number of columns, as `val` makes it from the command line. `UInt`
 #| would accept `True`, which makes `--indent 2` set `--indent` to `True`
 #| and take the 2 as a path.
@@ -18,35 +26,48 @@ proto sub MAIN(| --> Nil) is export {*}
 #| Print the formatted files
 multi sub MAIN(
     *@paths,                    #= files or directories, none or - reads stdin
+    RuleNames :$enable-rule,    #= also run this rule, see --list-rules
+    RuleNames :$disable-rule,   #= do not run this rule
     Columns :$indent = <4>,     #= spaces per indentation level
     Columns :$width = <80>,     #= line width for signature-wrap and align-comments
     :I(:@include),              #= where the modules the files use can be found
     --> Nil
 ) {
-    format-paths @paths, Print, :$indent, :$width, :@include;
+    format-paths @paths, Print, :$enable-rule, :$disable-rule, :$indent, :$width, :@include;
 }
 
 #| List the files that would change, exit 1 if any
 multi sub MAIN(
     *@paths,
     Bool :$check! where .so,
+    RuleNames :$enable-rule,
+    RuleNames :$disable-rule,
     Columns :$indent = <4>,
     Columns :$width = <80>,
     :I(:@include),
     --> Nil
 ) {
-    format-paths @paths, Check, :$indent, :$width, :@include;
+    format-paths @paths, Check, :$enable-rule, :$disable-rule, :$indent, :$width, :@include;
+}
+
+#| Show the rules
+multi sub MAIN(Bool :$list-rules! where .so --> Nil) {
+    for RakuFmt::Rules::builtin-rules() {
+        say sprintf '  %-20s %s%s', .name, .description, .default ?? '' !! ' (off by default)';
+    }
 }
 
 sub format-paths(
     @paths,
     Mode:D $mode,
+    RuleNames :$enable-rule,
+    RuleNames :$disable-rule,
     UInt :$indent,
     UInt :$width,
     :@include,
     --> Nil
 ) {
-    my @rules = RakuFmt::Rules::builtin-rules().grep(*.default);
+    my @rules = RakuFmt::Rules::builtin-rules().grep({ (.default || .name ∈ $enable-rule) && .name ∉ $disable-rule });
     my $fmt   = RakuFmt.new(:@rules, :options(:$indent, :$width));
     exit 1 if per-file @paths, :@include, -> $file { format-file $fmt, $mode, $file };
 }
