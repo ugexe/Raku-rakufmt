@@ -1,0 +1,12 @@
+{
+  "name": "rakufmt",
+  "description": "A demonstration code formatter built on RakuAST origin spans",
+  "version": "0.0.1",
+  "perl": "6.e",
+  "auth": "zef:ugexe",
+  "depends": [],
+  "provides": {},
+  "resources": [],
+  "license": "Artistic-2.0",
+  "source-url": ""
+}
