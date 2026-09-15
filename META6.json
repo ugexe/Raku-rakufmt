@@ -6,6 +6,8 @@
   "auth": "zef:ugexe",
   "depends": [],
   "provides": {
+    "RakuFmt": "lib/RakuFmt.rakumod",
+    "RakuFmt::Rules": "lib/RakuFmt/Rules.rakumod",
     "RakuFmt::Source": "lib/RakuFmt/Source.rakumod"
   },
   "resources": [],

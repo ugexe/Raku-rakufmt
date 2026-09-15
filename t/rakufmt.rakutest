@@ -1,0 +1,18 @@
+use v6.e.PREVIEW;
+use Test;
+use experimental :rakuast;
+use RakuFmt;
+use RakuFmt::Rules;
+
+my class BreakIt does RakuFmt::Rule {
+    method name(--> Str:D) { 'break-it' }
+    method description(--> Str:D) { 'turns + into -' }
+    method edits($src, % --> Iterable:D) {
+        $src.nodes-of(RakuAST::Infix).grep({ $src.text-of($_) eq '+' })
+          .map({ self.edit(.origin.from, .origin.to, '-', 'sabotage') })
+    }
+}
+throws-like { RakuFmt.new(:rules(BreakIt.new)).format("say 1 + 2;\n") },
+  X::RakuFmt::MeaningChanged, 'a rule that changes the meaning of the code is refused';
+
+done-testing;

@@ -23,9 +23,11 @@ class RakuFmt::Source {
     #| One byte per character of the text, set where the character is literal
     #| text. A `#` there does not start a comment.
     has buf8 $!literal;
+    has Int:D @!line-starts;
 
     submethod TWEAK(--> Nil) {
         $!ast := parse-ast($!text, $!name);
+        @!line-starts = 0, |$!text.indices("\n").map(* + 1);
         $!literal = buf8.allocate($!text.chars);
         self!walk($!ast, my %seen);
         self!scan-comments;
@@ -123,5 +125,30 @@ class RakuFmt::Source {
             else { ++$pos }
         }
         $text.chars
+    }
+
+    #| The source text of a node.
+    method text-of(RakuAST::Node:D $node --> Str:D) {
+        my $o = $node.origin;
+        $!text.substr($o.from, $o.to - $o.from)
+    }
+
+    #| True if any character in from..^to is literal text.
+    method has-literal(Int:D $from, Int:D $to --> Bool:D) {
+        ($from ..^ $to).first({ $!literal[$_] }).defined
+    }
+
+    method line-count(--> Int:D) { +@!line-starts }
+
+    method line-start(Int:D $line --> Int:D) { @!line-starts[$line] }
+
+    #| Position of the newline ending a line, or the end of the text.
+    method line-end(Int:D $line --> Int:D) {
+        $line < @!line-starts.end ?? @!line-starts[$line + 1] - 1 !! $!text.chars
+    }
+
+    #| Nodes of any of the given types.
+    method nodes-of(*@types --> Seq:D) {
+        @!nodes.grep(-> $n { @types.first({ $n ~~ $_ }, :k).defined })
     }
 }

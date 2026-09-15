@@ -1,0 +1,15 @@
+use v6.e.PREVIEW;
+use Test;
+use RakuFmt;
+use RakuFmt::Rules;
+
+sub fmt(Str $text --> Str:D) {
+    RakuFmt.new(:rules(RakuFmt::Rule::TrailingWhitespace.new)).format($text).formatted
+}
+
+is fmt("say 1;   \nsay 2;\n\n\n"), "say 1;\nsay 2;\n",
+  'trailing spaces and extra blank lines at the end go';
+is fmt("my \$h = q:to/X/;\n  a   \n  X\nsay \$h;\n"), "my \$h = q:to/X/;\n  a   \n  X\nsay \$h;\n",
+  'trailing spaces in a heredoc body are kept';
+
+done-testing;
