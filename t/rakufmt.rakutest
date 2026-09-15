@@ -2,7 +2,17 @@ use v6.e.PREVIEW;
 use Test;
 use experimental :rakuast;
 use RakuFmt;
+use RakuFmt::Source;
 use RakuFmt::Rules;
+
+sub fmt(Str $text --> Str:D) { RakuFmt.new.format($text).formatted }
+
+my $messy = $?FILE.IO.parent(2).add('examples/messy.raku').slurp;
+my $once = fmt($messy);
+is $once, $?FILE.IO.parent(2).add('examples/tidy.raku').slurp, 'the example is reformatted as shown in examples/tidy.raku';
+is fmt($once), $once, 'formatting is idempotent';
+is RakuFmt::Source.new(:text($once)).comments.elems, RakuFmt::Source.new(:text($messy)).comments.elems,
+  'every comment is still there';
 
 my class BreakIt does RakuFmt::Rule {
     method name(--> Str:D) { 'break-it' }

@@ -6,6 +6,51 @@ It is not meant to be a real formatter. It has a handful of rules, a few
 options, and no configuration file. It exists to show what RakuAST makes
 possible.
 
+## Trying it
+
+[examples/messy.raku](examples/messy.raku) goes in, and
+[examples/tidy.raku](examples/tidy.raku) comes out. An excerpt:
+
+```raku
+class Shape {
+  has Str $.name;
+      has Int $.sides=0;   # how many
+  has @.points;  # the corners
+
+    method describe(Str $prefix,Int :$precision=2,Bool :$verbose=False,Str :$unit="cm" --> Str) {
+      my $area=self.area.round(10**-$precision);
+        my $text = qq:to/END/;
+            $prefix $!name
+              # not a comment, heredoc text
+            area: {$area # a comment inside interpolated code
+            } $unit
+            END
+```
+
+becomes
+
+```raku
+class Shape {
+    has Str $.name;
+    has Int $.sides = 0;  # how many
+    has @.points;         # the corners
+
+    method describe(
+        Str $prefix,
+        Int :$precision = 2,
+        Bool :$verbose = False,
+        Str :$unit = "cm",
+        --> Str
+    ) {
+        my $area = self.area.round(10 ** -$precision);
+        my $text = qq:to/END/;
+            $prefix $!name
+              # not a comment, heredoc text
+            area: {$area # a comment inside interpolated code
+            } $unit
+            END
+```
+
 ## Rules
 
 | Rule | What it does |
