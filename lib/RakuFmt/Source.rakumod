@@ -40,8 +40,52 @@ class RakuFmt::Source {
         # effect, so report the failure after leaving its scope.
         my $ast = try compile-quietly($text);
         my $error = $!;
+        forget-packages($_) with $ast;
         die "Could not parse $name:\n" ~ $error.message.indent(4) unless $ast;
         $ast
+    }
+
+    # Parsing runs BEGIN time code for real. A package the file declares
+    # under one that a `use` loaded, e.g. `package Zef::CLI` after `use Zef`,
+    # stays installed in that loaded package, and parsing the file again
+    # would find its declarations and exports already there. A package that
+    # holds nothing but what the file declared is removed. A package that
+    # also holds packages from elsewhere, e.g. a stub another module made,
+    # only loses its exports.
+    sub forget-packages(RakuAST::CompUnit:D $ast --> Nil) {
+        my @names;
+        sub collect(RakuAST::Node:D $node --> Nil) {
+            @names.push: $node.name.canonicalize
+              if $node ~~ RakuAST::Package && $node.name.defined && $node.scope eq 'our';
+            $node.visit-children(&collect);
+        }
+        collect($ast);
+        my $declared = @names.Set;
+
+        for @names.unique.sort(*.split('::').elems) -> $name {
+            my @parts = $name.split('::');
+            my $who = GLOBAL::;
+            # A name under a setting package, e.g. `X::Zef::Oops`, is
+            # installed in that package rather than in GLOBAL.
+            if @parts > 1 && !(GLOBAL::{@parts.head}:exists) && (CORE::{@parts.head}:exists) {
+                $who = CORE::{@parts.shift}.WHO;
+            }
+            for @parts.head(*-1) {
+                $who = ($who{$_}:exists) ?? $who{$_}.WHO !! Nil;
+                last unless $who ~~ Stash;
+            }
+            next unless $who ~~ Stash && ($who{@parts.tail}:exists);
+            my $inner = $who{@parts.tail}.WHO;
+            my $foreign = $inner.keys.first({
+                $_ ne 'EXPORT' && !.starts-with(any <& $ @ %>) && "$name\::$_" !(elem) $declared
+            });
+            if $foreign.defined {
+                $inner<EXPORT>:delete;
+            }
+            else {
+                $who{@parts.tail}:delete;
+            }
+        }
     }
 
     sub compile-quietly(Str:D $text --> RakuAST::CompUnit:D) {
