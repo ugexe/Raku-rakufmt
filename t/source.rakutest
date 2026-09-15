@@ -33,5 +33,12 @@ is-deeply comments(q:to/END/), ("#`( one\ntwo )",), 'an embedded comment spans i
     say 1; #`( one
     two ) say 2;
     END
+is-deeply comments(q:to/END/), (), 'Pod and declarator docs are not comments';
+    #| doc
+    sub f() { }
+    =begin comment
+    # pod
+    =end comment
+    END
 
 done-testing;

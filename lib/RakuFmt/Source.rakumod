@@ -67,7 +67,9 @@ class RakuFmt::Source {
             # Text the author typed as data. A `#` in here never starts a
             # comment.
             when RakuAST::StrLiteral
-              | RakuAST::Regex::Literal {
+              | RakuAST::Regex::Literal
+              | RakuAST::Doc::Block
+              | RakuAST::Doc::Declarator {
                 self!mark($origin, 1) if $origin;
             }
             when .^name.starts-with('RakuAST::Regex::CharClassEnumerationElement') {
