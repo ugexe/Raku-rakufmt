@@ -10,6 +10,7 @@ possible.
 
 ```
 raku -I. bin/rakufmt examples/messy.raku            # print the formatted file
+raku -I. bin/rakufmt --explain examples/messy.raku  # every edit and the rule behind it
 raku -I. bin/rakufmt --check examples/              # exit 1 if anything would change
 raku -I. bin/rakufmt -w some-file.raku              # rewrite in place
 raku -I. bin/rakufmt --list-rules
@@ -101,6 +102,8 @@ Turn rules on and off with `--enable-rule=single-quotes` and `--disable-rule=ind
   for Rakudo.
 - **It is slow on big files.** Every rule that changes something causes a
   reparse. Formatting Rakudo's `lib/Test.rakumod` takes about seven seconds.
+- **`--explain` positions** refer to the text as that rule saw it, after the
+  rules before it ran.
 - The rules are a sample, not a style guide.
 
 ## Tests
