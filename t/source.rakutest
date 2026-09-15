@@ -25,5 +25,9 @@ is-deeply comments(q:to/END/), ('# inside',), 'a comment in code interpolated in
       }
       X
     END
+is-deeply comments(q:to/END/), ('# regex comment',), 'a `#` in a regex is a comment unless it is a literal';
+    say "#" ~~ / \# <[#]> '#' # regex comment
+    /;
+    END
 
 done-testing;
