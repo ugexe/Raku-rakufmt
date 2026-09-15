@@ -29,5 +29,9 @@ is-deeply comments(q:to/END/), ('# regex comment',), 'a `#` in a regex is a comm
     say "#" ~~ / \# <[#]> '#' # regex comment
     /;
     END
+is-deeply comments(q:to/END/), ("#`( one\ntwo )",), 'an embedded comment spans its brackets';
+    say 1; #`( one
+    two ) say 2;
+    END
 
 done-testing;

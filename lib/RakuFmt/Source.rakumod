@@ -2,7 +2,8 @@ use v6.e.PREVIEW;
 use nqp;
 use experimental :rakuast;
 
-#| A comment found in the source: a `#` and the rest of its line.
+#| A comment found in the source: plain `#` to the end of the line, or an
+#| embedded `#`(...)` comment.
 class RakuFmt::Comment {
     has Int:D $.from is required;
     has Int:D $.to   is required;
@@ -90,9 +91,35 @@ class RakuFmt::Source {
                 $pos = $at + 1;
                 next;
             }
-            my $to = $text.index("\n", $at) // $text.chars;
+            my $to = embedded-comment-end($text, $at)
+              // ($text.index("\n", $at) // $text.chars);
             @!comments.push: RakuFmt::Comment.new(:from($at), :$to);
             $pos = $to;
         }
+    }
+
+    # `#`(...)`, `#`[[...]]` and friends: the opener may be repeated, and
+    # the comment ends at the same number of closers.
+    sub embedded-comment-end(Str:D $text, Int:D $at --> Int) {
+        return Nil unless $text.substr($at + 1, 1) eq '`';
+        my constant %pairs = '(' => ')', '[' => ']', '{' => '}', '<' => '>',
+          '«' => '»', '「' => '」';
+        my $open = $text.substr($at + 2, 1);
+        my $close = %pairs{$open} // return Nil;
+        my $count = 1;
+        $count++ while $text.substr($at + 2 + $count, 1) eq $open;
+        my $opener = $open x $count;
+        my $closer = $close x $count;
+        my int $depth = 1;
+        my int $pos = $at + 2 + $count;
+        while $pos < $text.chars {
+            if $text.substr($pos, $count) eq $opener { ++$depth; $pos += $count }
+            elsif $text.substr($pos, $count) eq $closer {
+                return $pos + $count unless --$depth;
+                $pos += $count;
+            }
+            else { ++$pos }
+        }
+        $text.chars
     }
 }
