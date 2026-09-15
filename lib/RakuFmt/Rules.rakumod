@@ -345,9 +345,29 @@ class RakuFmt::Rule::AlignComments does RakuFmt::Rule {
     }
 }
 
+#| Use single quotes for a string that interpolates nothing.
+class RakuFmt::Rule::SingleQuotes does RakuFmt::Rule {
+    method name(--> Str:D) { 'single-quotes' }
+    method description(--> Str:D) { q|use '...' for a "..." string with nothing to interpolate or escape| }
+    method default(--> Bool:D) { False }
+
+    method edits($src, % --> Iterable:D) {
+        gather for $src.nodes-of(RakuAST::QuotedString) -> $q {
+            my $literal = $src.text-of($q);
+            next unless $literal.starts-with('"') && $literal.ends-with('"') && $literal.chars >= 2;
+            my @segments = $q.segments;
+            next unless @segments == 1 && @segments[0] ~~ RakuAST::StrLiteral;
+            my $inner = @segments[0].origin ?? $src.text-of(@segments[0]) !! next;
+            next if $inner ~~ / <[ \\ $ @ % & { } ' " ]> /;
+            take self.edit($q.origin.from, $q.origin.to, "'$inner'", 'nothing to interpolate');
+        }
+    }
+}
+
 package RakuFmt::Rules {
     my @builtin-rules = (
         RakuFmt::Rule::TrailingWhitespace,
+        RakuFmt::Rule::SingleQuotes,
         RakuFmt::Rule::InfixSpacing,
         RakuFmt::Rule::CommaSpacing,
         RakuFmt::Rule::SignatureWrap,

@@ -16,6 +16,7 @@ possible.
 | `signature-wrap` | a routine signature that makes its line longer than `--width` gets one parameter per line |
 | `indent` | indents by the blocks and brackets a line is in. A continuation line keeps its offset from the start of its statement. Heredoc bodies, multi-line strings, comments and Pod keep their own indentation |
 | `align-comments` | lines up trailing comments on consecutive lines |
+| `single-quotes` | off by default: `"..."` with nothing to interpolate or escape becomes `'...'` |
 
 ## How it works
 

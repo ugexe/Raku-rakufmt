@@ -1,0 +1,14 @@
+use v6.e.PREVIEW;
+use Test;
+use RakuFmt;
+use RakuFmt::Rules;
+
+sub fmt(Str $text --> Str:D) {
+    RakuFmt.new(:rules(RakuFmt::Rule::SingleQuotes.new)).format($text).formatted
+}
+
+is fmt("say \"plain\"; say \"with \$*PID\"; say \"tab\\t\";\n"),
+  "say 'plain'; say \"with \$*PID\"; say \"tab\\t\";\n",
+  'only a string with nothing to interpolate or escape changes';
+
+done-testing;
