@@ -5,7 +5,9 @@
   "perl": "6.e",
   "auth": "zef:ugexe",
   "depends": [],
-  "provides": {},
+  "provides": {
+    "RakuFmt::Source": "lib/RakuFmt/Source.rakumod"
+  },
   "resources": [],
   "license": "Artistic-2.0",
   "source-url": ""

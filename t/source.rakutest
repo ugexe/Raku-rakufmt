@@ -1,0 +1,29 @@
+use v6.e.PREVIEW;
+use Test;
+use RakuFmt::Source;
+
+sub comments(Str $text --> List:D) {
+    my $src = RakuFmt::Source.new(:$text);
+    $src.comments.map({ $text.substr(.from, .to - .from) }).List
+}
+
+is-deeply comments(qq:to/END/), ('# real',), 'a `#` in a double quoted string is not a comment';
+    my \$x = "a # b"; # real
+    END
+is-deeply comments(q:to/END/), ('# real',), 'a `#` in a word list is not a comment';
+    my @x = <a # b>; # real
+    END
+is-deeply comments(q:to/END/), ('# in code',), 'a `#` in a heredoc body is not a comment';
+    my $h = q:to/X/;
+      # in body
+      X
+    say $h; # in code
+    END
+is-deeply comments(q:to/END/), ('# inside',), 'a comment in code interpolated into a heredoc is found';
+    my $h = qq:to/X/;
+      { 1 # inside
+      }
+      X
+    END
+
+done-testing;
