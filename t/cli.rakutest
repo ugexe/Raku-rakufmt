@@ -1,0 +1,44 @@
+use v6.e.PREVIEW;
+use Test;
+
+my $root  = $?FILE.IO.parent(2);
+my $messy = $root.add('examples/messy.raku').relative($root);
+my $tidy  = $root.add('examples/tidy.raku').relative($root);
+
+sub rakufmt(*@args --> Hash:D) {
+    my $proc = run $*EXECUTABLE, '-I' ~ $root, $root.add('bin/rakufmt'), |@args,
+      :cwd($root), :out, :err;
+    my $out = $proc.out.slurp(:close);
+    my $err = $proc.err.slurp(:close);
+    %(:$out, :$err, :exitcode($proc.exitcode))
+}
+
+subtest 'options can follow the paths' => {
+    my %r = rakufmt($messy, '--check');
+    is %r<exitcode>, 1, 'a changed file exits 1';
+    is %r<out>, "$messy would be reformatted\n", '--check after the path still checks';
+}
+
+subtest '-I takes its directory as the next argument' => {
+    my %r = rakufmt('-I', 'lib', '--check', $tidy);
+    is %r<exitcode>, 0, 'a tidy file exits 0';
+    is %r<out>, '', 'lib is not treated as a path to format';
+}
+
+subtest 'a number option takes the next argument as its value' => {
+    my $file = $*TMPDIR.add("rakufmt-indent-$*PID.raku");
+    $file.spurt("if True \{\nsay 1;\n}\n");
+    END $file.unlink;
+    my %r = rakufmt('--indent', '2', $file);
+    is %r<out>, "if True \{\n  say 1;\n}\n", '--indent 2 indents by two spaces';
+    %r = rakufmt('--indent', $file);
+    is %r<exitcode>, 2, '--indent without a value is a usage error';
+}
+
+subtest '--help' => {
+    my %r = rakufmt('--help');
+    is %r<exitcode>, 0, '--help exits 0';
+    ok %r<out>.contains('List the files that would change'), '--help describes the modes';
+}
+
+done-testing;

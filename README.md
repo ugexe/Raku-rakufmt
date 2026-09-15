@@ -8,6 +8,12 @@ possible.
 
 ## Trying it
 
+```
+raku -I. bin/rakufmt examples/messy.raku            # print the formatted file
+raku -I. bin/rakufmt --check examples/              # exit 1 if anything would change
+raku -I. bin/rakufmt --help
+```
+
 [examples/messy.raku](examples/messy.raku) goes in, and
 [examples/tidy.raku](examples/tidy.raku) comes out. An excerpt:
 
@@ -78,6 +84,20 @@ class Shape {
 4. **Apply, reparse, compare.** The edits are applied and the result is parsed
    again. Its `.DEPARSE` output must be identical to the original's, or the
    rule is refused and nothing is written. The next rule works on the new tree.
+
+## Limitations
+
+- **Parsing runs code.** Compiling a file runs its `BEGIN` blocks and loads the
+  modules it `use`s. Point rakufmt at them with `-I lib`. Do not run it on code
+  you would not run. Packages a parse leaves behind in loaded modules are
+  cleaned up so the file can be parsed again, but a file whose classes are
+  already loaded in the rakufmt process, such as rakufmt's own
+  `lib/RakuFmt/Rules.rakumod`, cannot be parsed.
+- **The file has to compile.** An undeclared variable is a parse error, as it is
+  for Rakudo.
+- **It is slow on big files.** Every rule that changes something causes a
+  reparse. Formatting Rakudo's `lib/Test.rakumod` takes about seven seconds.
+- The rules are a sample, not a style guide.
 
 ## Tests
 

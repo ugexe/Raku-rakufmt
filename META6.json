@@ -7,6 +7,7 @@
   "depends": [],
   "provides": {
     "RakuFmt": "lib/RakuFmt.rakumod",
+    "RakuFmt::CLI": "lib/RakuFmt/CLI.rakumod",
     "RakuFmt::Rules": "lib/RakuFmt/Rules.rakumod",
     "RakuFmt::Source": "lib/RakuFmt/Source.rakumod"
   },
