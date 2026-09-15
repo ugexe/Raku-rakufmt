@@ -14,6 +14,7 @@ possible.
 | `infix-spacing` | one space around infix operators, `=` in declarations and parameter defaults, and `=>`. Ranges stay tight, a line break next to an operator stays, and padding that lines an operator up with a nearby line stays |
 | `comma-spacing` | no space before a comma and one after it, in lists, arguments and signatures |
 | `signature-wrap` | a routine signature that makes its line longer than `--width` gets one parameter per line |
+| `indent` | indents by the blocks and brackets a line is in. A continuation line keeps its offset from the start of its statement. Heredoc bodies, multi-line strings, comments and Pod keep their own indentation |
 
 ## How it works
 

@@ -20,6 +20,8 @@ class RakuFmt::Source {
     #| Every node with an origin, parents before children, each node once.
     has RakuAST::Node:D @.nodes;
     has RakuFmt::Comment:D @.comments;
+    #| The origins of heredoc bodies.
+    has RakuAST::Origin:D @.heredoc-bodies;
     #| One byte per character of the text, set where the character is literal
     #| text. A `#` there does not start a comment.
     has buf8 $!literal;
@@ -121,6 +123,11 @@ class RakuFmt::Source {
             when .^name.starts-with('RakuAST::Regex::CharClassEnumerationElement') {
                 self!mark($origin, 1) if $origin;
             }
+            # The body of a heredoc is parsed after its line ends, so it is
+            # not inside the heredoc's own span.
+            when RakuAST::Heredoc {
+                @!heredoc-bodies.push($_) with .body-origin;
+            }
         }
 
         $node.visit-children(-> $child { self!walk($child, %seen) });
@@ -177,6 +184,12 @@ class RakuFmt::Source {
         $!text.substr($o.from, $o.to - $o.from)
     }
 
+    #| True if the character at $pos is literal text: string contents,
+    #| regex literals, Pod, declarator docs.
+    method is-literal(Int:D $pos --> Bool:D) {
+        $pos < $!text.chars && ?$!literal[$pos]
+    }
+
     #| True if any character in from..^to is literal text.
     method has-literal(Int:D $from, Int:D $to --> Bool:D) {
         ($from ..^ $to).first({ $!literal[$_] }).defined
@@ -185,6 +198,14 @@ class RakuFmt::Source {
     #| True if a comment starts in from..^to.
     method has-comment(Int:D $from, Int:D $to --> Bool:D) {
         so @!comments.first({ $from <= .from < $to })
+    }
+
+    #| True if a line starting at $pos must keep its leading whitespace:
+    #| it is inside a heredoc body, a string or a comment.
+    method is-verbatim(Int:D $pos --> Bool:D) {
+        so self.is-literal($pos)
+          || @!heredoc-bodies.first({ .from <= $pos < .to })
+          || @!comments.first({ .from < $pos < .to })
     }
 
     #| Zero based line number of a position.

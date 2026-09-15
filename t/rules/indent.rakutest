@@ -1,0 +1,26 @@
+use v6.e.PREVIEW;
+use Test;
+use RakuFmt;
+use RakuFmt::Rules;
+
+sub fmt(Str $text --> Str:D) {
+    RakuFmt.new(:rules(RakuFmt::Rule::Indent.new)).format($text).formatted
+}
+
+is fmt("if True \{\nsay 1;\n  if True \{\n        say 2;\n }\n}\n"),
+  "if True \{\n    say 1;\n    if True \{\n        say 2;\n    }\n}\n",
+  'lines are indented by the blocks they are in';
+is fmt("sub f() \{\nmy \$h = q:to/X/;\n  body\n  X\n}\n"),
+  "sub f() \{\n    my \$h = q:to/X/;\n  body\n  X\n}\n",
+  'a heredoc body keeps its indentation';
+is fmt("sub f() \{\nsay 1\n  + 2;\n}\n"),
+  "sub f() \{\n    say 1\n      + 2;\n}\n",
+  'a continuation line keeps its offset from the start of its statement';
+is fmt("my \@a = [\n1,\n      2,\n];\n"),
+  "my \@a = [\n    1,\n    2,\n];\n",
+  'the elements of a list in brackets line up';
+is fmt("unit module Foo;\nsub f() \{\nsay 1;\n}\n"),
+  "unit module Foo;\nsub f() \{\n    say 1;\n}\n",
+  'a unit package does not indent the file';
+
+done-testing;

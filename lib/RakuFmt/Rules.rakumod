@@ -233,12 +233,87 @@ class RakuFmt::Rule::SignatureWrap does RakuFmt::Rule {
     }
 }
 
+#| Indent every line by the blocks and brackets it is in.
+class RakuFmt::Rule::Indent does RakuFmt::Rule {
+    method name(--> Str:D) { 'indent' }
+    method description(--> Str:D) { 'indent by nesting depth; continuation lines keep their offset; heredocs, strings and Pod are left alone' }
+
+    method edits($src, %options --> Iterable:D) {
+        my $text = $src.text;
+        my $step = %options<indent> // 4;
+
+        my @containers = $src.nodes-of(
+          RakuAST::Blockoid,
+          RakuAST::Circumfix::Parentheses,
+          RakuAST::Circumfix::ArrayComposer,
+          RakuAST::Circumfix::HashComposer,
+        ).grep({
+            # A `unit` package has a block with no braces.
+            $text.substr(.origin.from, 1) eq any(<{ ( [>)
+              && $src.line-of(.origin.from) != $src.line-of(.origin.to - 1)
+        });
+        my @statements = $src.nodes-of(RakuAST::Statement)
+          .grep({ $src.line-of(.origin.from) != $src.line-of(.origin.to - 1) });
+
+        my %delta;
+        my %new;
+        gather for ^$src.line-count -> $line {
+            my $start = $src.line-start($line);
+            my $end   = $src.line-end($line);
+            my $p = $start;
+            $p++ while $p < $end && $text.substr($p, 1) eq ' ' | "\t";
+            next if $p == $end;
+            %delta{$line} = 0;
+            # Heredoc bodies and multi-line strings keep their own
+            # indentation.
+            next if $src.is-verbatim($start) || $src.is-verbatim($p);
+
+            my $old = $p - $start;
+            my @around = @containers.grep({ .origin.from < $p < .origin.to - 1 });
+            my $depth = +@around;
+            my $closing = so @containers.first({ .origin.to - 1 == $p });
+
+            # The innermost statement that began on an earlier line, unless
+            # a block or bracket inside of it holds this line.
+            my $statement = @statements
+              .grep({ .origin.from < $p < .origin.to })
+              .sort({ .origin.to - .origin.from }).head;
+            my $inner = @around.sort({ .origin.to - .origin.from }).head;
+            my $continuation = !$closing && $statement
+              && (!$inner || $inner.origin.from < $statement.origin.from);
+
+            my $first-line = $continuation ?? $src.line-of($statement.origin.from) !! $line;
+            my $new = do if !$continuation {
+                $depth * $step
+            }
+            # One element per line in a bracketed list: line up with the
+            # first element.
+            elsif $inner && $statement.origin.from > $inner.origin.from
+              && $statement ~~ RakuAST::Statement::Expression
+              && $statement.expression ~~ RakuAST::ApplyListInfix
+              && $statement.expression.operands.first({ .origin && .origin.from == $p })
+              && $text.substr($src.line-start($first-line), $statement.origin.from - $src.line-start($first-line)).trim eq '' {
+                %new{$first-line}
+            }
+            else {
+                max(0, $old + (%delta{$first-line} // 0))
+            }
+            %delta{$line} = $new - $old;
+            %new{$line} = $new;
+            take self.edit($start, $p, ' ' x $new,
+              $continuation ?? 'continuation line keeps its offset' !! "nesting depth $depth")
+              if $new != $old || $text.substr($start, $p - $start).contains("\t");
+        }
+    }
+}
+
 package RakuFmt::Rules {
     my @builtin-rules = (
         RakuFmt::Rule::TrailingWhitespace,
         RakuFmt::Rule::InfixSpacing,
         RakuFmt::Rule::CommaSpacing,
         RakuFmt::Rule::SignatureWrap,
+        RakuFmt::Rule::Indent,
     ).map(*.new);
 
     #| The rules that come with rakufmt, in the order they run.
