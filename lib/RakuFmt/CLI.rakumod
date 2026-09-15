@@ -1,5 +1,6 @@
 use v6.e.PREVIEW;
 use RakuFmt;
+use RakuFmt::Source;
 use RakuFmt::Rules;
 
 #| The name of a rule, as --list-rules shows it.
@@ -83,6 +84,11 @@ multi sub MAIN(
     format-paths @paths, Explain, :explain, :$enable-rule, :$disable-rule, :$indent, :$width, :@include;
 }
 
+#| List the comments rakufmt finds
+multi sub MAIN(*@paths, Bool :$comments! where .so, :I(:@include) --> Nil) {
+    exit 1 if per-file @paths, &show-comments, :@include;
+}
+
 #| Show the rules
 multi sub MAIN(Bool :$list-rules! where .so --> Nil) {
     for RakuFmt::Rules::builtin-rules() {
@@ -136,6 +142,16 @@ multi sub report(Write, IO::Path:D $file, RakuFmt::Result:D $result --> Nil) {
 }
 
 multi sub report(Explain, Input $, RakuFmt::Result:D $ --> Nil) { }
+
+sub show-comments(Input $file --> Nil) {
+    my $name = name-of($file);
+    my $text = $file.slurp(:close);
+    my $src  = RakuFmt::Source.new(:$text, :$name);
+    for $src.comments {
+        say sprintf '%s:%d:%d %s %s', $name, $src.line-of(.from) + 1, $src.column-of(.from) + 1,
+          .own-line ?? 'own-line' !! 'trailing', $text.substr(.from, .to - .from).raku;
+    }
+}
 
 #| Runs C<&handle> on the one file C<@paths> names, and returns True if
 #| C<&handle> returns something true. Several files are each handled by a

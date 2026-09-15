@@ -45,6 +45,11 @@ subtest 'modes do not combine' => {
     is $copy.slurp, $root.add($messy).slurp, '--check with --write does not rewrite the file';
 }
 
+subtest 'options a mode does not use are refused' => {
+    my %r = rakufmt('--comments', '--indent=2', $messy);
+    is %r<exitcode>, 2, '--comments with --indent is a usage error';
+}
+
 subtest 'rules are named on the command line' => {
     my %r = rakufmt('--enable-rule', 'single-quotes', '--disable-rule=indent', '--disable-rule=align-comments', '--check', $tidy);
     is %r<exitcode>, 1, '--enable-rule with a separate value turns on a rule';
