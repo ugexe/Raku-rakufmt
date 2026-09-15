@@ -75,6 +75,35 @@ class Shape {
 
 Turn rules on and off with `--enable-rule=single-quotes` and `--disable-rule=indent --disable-rule=align-comments`.
 
+### Rules from other modules
+
+A module can export rules of its own: classes that do `RakuFmt::Rule`.
+
+```raku
+unit module SpacingRules;
+use RakuFmt::Rules;
+
+class SemicolonSpacing does RakuFmt::Rule is export {
+    method name        { 'semicolon-spacing' }
+    method description { 'no space before a semicolon' }
+    method default     { False }
+
+    method edits($src, %options) {
+        $src.text.match(/ \h+ <?before ';'> /, :g)
+          .grep(-> $m { !$src.has-literal($m.from, $m.to) && !$src.comments.first({ .from <= $m.from < .to }) })
+          .map({ self.edit(.from, .to, '', 'space before a semicolon') })
+    }
+}
+```
+
+`--rule-module=SpacingRules` makes its rules available. They show up in
+`--list-rules`, run unless their `default` method returns `False`, and can be
+turned on and off by name. `--rule-module` can be given more than once. The
+rules of modules run before the built-in rules, so the built-in rules lay out
+the code they write. A rule module is looked up where Rakudo looks for modules,
+such as `raku -I` and installed distributions, not in rakufmt's `-I`
+directories.
+
 ## How it works
 
 1. **Parse.** The file is compiled to a RakuAST tree by Rakudo's own compiler,

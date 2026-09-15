@@ -377,4 +377,13 @@ package RakuFmt::Rules {
 
     #| The rules that come with rakufmt, in the order they run.
     our sub builtin-rules(--> List:D) { @builtin-rules.List }
+
+    #| The rules a module exports: every exported class that does
+    #| RakuFmt::Rule, in order of their names.
+    our sub module-rules(Str:D $module --> List:D) {
+        my $unit  = $*REPO.need(CompUnit::DependencySpecification.new(:short-name($module)));
+        my @rules = $unit.handle.export-package<DEFAULT>.WHO.values.grep(RakuFmt::Rule).map(*.new).sort(*.name);
+        die "rakufmt: $module exports no class that does RakuFmt::Rule" unless @rules;
+        @rules.List
+    }
 }

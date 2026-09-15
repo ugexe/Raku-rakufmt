@@ -5,8 +5,8 @@ my $root  = $?FILE.IO.parent(2);
 my $messy = $root.add('examples/messy.raku').relative($root);
 my $tidy  = $root.add('examples/tidy.raku').relative($root);
 
-sub rakufmt(*@args --> Hash:D) {
-    my $proc = run $*EXECUTABLE, '-I' ~ $root, $root.add('bin/rakufmt'), |@args,
+sub rakufmt(*@args, :$lib --> Hash:D) {
+    my $proc = run $*EXECUTABLE, '-I' ~ $root, |('-I' ~ $_ with $lib), $root.add('bin/rakufmt'), |@args,
       :cwd($root), :out, :err;
     my $out = $proc.out.slurp(:close);
     my $err = $proc.err.slurp(:close);
@@ -62,6 +62,34 @@ subtest 'rules are named on the command line' => {
     %r = rakufmt('--enable-rule=single-quotes', '--check', $tidy, $messy);
     is %r<exitcode>, 1, 'options reach the process each of several files is formatted by';
     is %r<out>, "$tidy would be reformatted\n$messy would be reformatted\n", 'every file of several is formatted';
+}
+
+subtest 'rules from modules' => {
+    my $lib = $root.add('t/lib').absolute;
+    my %r = rakufmt('--list-rules', '--rule-module=SpacingRules', :$lib);
+    is %r<out>.lines.head(2).map(*.words.head).List, <paren-spacing semicolon-spacing>,
+      '--list-rules shows the rules of a module first';
+
+    my $spaced = $*TMPDIR.add("rakufmt-spaced-$*PID.raku").absolute;
+    my $tight  = $*TMPDIR.add("rakufmt-tight-$*PID.raku").absolute;
+    $spaced.IO.spurt("say 1 ;\n");
+    $tight.IO.spurt("say(1);\n");
+    END .IO.unlink for $spaced, $tight;
+    %r = rakufmt('--check', '--rule-module', 'SpacingRules', '--enable-rule=semicolon-spacing', $spaced, $tight, :$lib);
+    is %r<out>, "$spaced would be reformatted\n", 'a rule of a module can be enabled, in the process each of several files is formatted by';
+
+    $spaced.IO.spurt("say( 1 );\n");
+    %r = rakufmt('--check', '--rule-module=SpacingRules', $spaced, :$lib);
+    is %r<exitcode>, 1, 'a rule of a module that is on by default runs';
+    %r = rakufmt('--check', '--rule-module=SpacingRules', '--disable-rule=paren-spacing', $spaced, :$lib);
+    is %r<exitcode>, 0, 'a rule of a module can be disabled';
+
+    %r = rakufmt('--check', '--enable-rule=semicolon-spacing', $tidy, :$lib);
+    is %r<exitcode>, 2, 'the rules of a module that is not given are not available';
+
+    %r = rakufmt('--list-rules', '--rule-module=SecondIndent', :$lib);
+    isnt %r<exitcode>, 0, 'a module with a rule of the same name as another fails';
+    ok %r<err>.contains("rakufmt: more than one rule is named 'indent'"), 'the rule name used twice is named';
 }
 
 subtest '--help' => {

@@ -1,0 +1,16 @@
+use v6.e.PREVIEW;
+use Test;
+use lib $?FILE.IO.parent.add('lib').absolute;
+use RakuFmt;
+use RakuFmt::Rules;
+
+my @rules = RakuFmt::Rules::module-rules('SpacingRules');
+
+is @rules.map(*.name).List, <paren-spacing semicolon-spacing>, 'the rules a module exports are found, in order of their names';
+nok @rules.first(*.name eq 'not-exported'), 'a rule the module does not export is not found';
+is RakuFmt.new(:@rules).format("say( 1 ) ;   # ( a ;\n").formatted, "say(1);   # ( a ;\n",
+  'the rules from a module format code, and leave comments alone';
+throws-like { RakuFmt::Rules::module-rules('NoRules') }, Exception, message => 'rakufmt: NoRules exports no class that does RakuFmt::Rule',
+  'a module that exports no rules is refused';
+
+done-testing;

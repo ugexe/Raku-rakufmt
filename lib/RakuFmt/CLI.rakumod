@@ -3,8 +3,12 @@ use RakuFmt;
 use RakuFmt::Source;
 use RakuFmt::Rules;
 
-#| The name of a rule, as --list-rules shows it.
-my subset RuleName of Str where * eq any RakuFmt::Rules::builtin-rules().map(*.name);
+#| The rules of the modules given with --rule-module, then the built-in rules.
+my @available-rules = RakuFmt::Rules::builtin-rules();
+
+#| The name of a rule, as --list-rules shows it. The rules of --rule-module
+#| modules are known once ARGS-TO-CAPTURE has loaded them.
+my subset RuleName of Str where * eq any @available-rules.map(*.name);
 
 #| The names given by the repeated uses of an option such as --enable-rule.
 #| An option that is not given binds the type object, which has no names to
@@ -22,6 +26,17 @@ my enum Mode <Print Check Write Explain>;
 #| A file to format, or standard input.
 my subset Input where IO::Path:D | IO::Handle:D;
 
+#| Loads the modules given with --rule-module before a MAIN candidate is
+#| picked, so the names of their rules can be checked.
+sub ARGS-TO-CAPTURE(&main, @args --> Capture:D) is export {
+    my $capture = &*ARGS-TO-CAPTURE(&main, @args);
+    @available-rules = |($capture<rule-module> // ()).map(&RakuFmt::Rules::module-rules).flat, |RakuFmt::Rules::builtin-rules();
+    for @available-rules.classify(*.name).grep(*.value > 1) {
+        die "rakufmt: more than one rule is named '{.key}': {.value.map(*.^name).join(', ')}";
+    }
+    $capture
+}
+
 proto sub MAIN(|args --> Nil) is export {
     my $*MAIN-ARGS = args;
     {*}
@@ -32,6 +47,7 @@ multi sub MAIN(
     *@paths,                    #= files or directories, none or - reads stdin
     RuleNames :$enable-rule,    #= also run this rule, see --list-rules
     RuleNames :$disable-rule,   #= do not run this rule
+    :@rule-module,              #= make the rules this module exports available
     Columns :$indent = <4>,     #= spaces per indentation level
     Columns :$width = <80>,     #= line width for signature-wrap and align-comments
     :I(:@include),              #= where the modules the files use can be found
@@ -47,6 +63,7 @@ multi sub MAIN(
     Bool :$explain,
     RuleNames :$enable-rule,
     RuleNames :$disable-rule,
+    :@rule-module,
     Columns :$indent = <4>,
     Columns :$width = <80>,
     :I(:@include),
@@ -62,6 +79,7 @@ multi sub MAIN(
     Bool :$explain,
     RuleNames :$enable-rule,
     RuleNames :$disable-rule,
+    :@rule-module,
     Columns :$indent = <4>,
     Columns :$width = <80>,
     :I(:@include),
@@ -76,6 +94,7 @@ multi sub MAIN(
     Bool :$explain! where .so,
     RuleNames :$enable-rule,
     RuleNames :$disable-rule,
+    :@rule-module,
     Columns :$indent = <4>,
     Columns :$width = <80>,
     :I(:@include),
@@ -90,8 +109,8 @@ multi sub MAIN(*@paths, Bool :$comments! where .so, :I(:@include) --> Nil) {
 }
 
 #| Show the rules
-multi sub MAIN(Bool :$list-rules! where .so --> Nil) {
-    for RakuFmt::Rules::builtin-rules() {
+multi sub MAIN(Bool :$list-rules! where .so, :@rule-module --> Nil) {
+    for @available-rules {
         say sprintf '  %-20s %s%s', .name, .description, .default ?? '' !! ' (off by default)';
     }
 }
@@ -107,7 +126,7 @@ sub format-paths(
     :@include,
     --> Nil
 ) {
-    my @rules = RakuFmt::Rules::builtin-rules().grep({ (.default || .name ∈ $enable-rule) && .name ∉ $disable-rule });
+    my @rules = @available-rules.grep({ (.default || .name ∈ $enable-rule) && .name ∉ $disable-rule });
     my $fmt   = RakuFmt.new(:@rules, :options(:$indent, :$width));
     exit 1 if per-file @paths, :@include, -> $file { format-file $fmt, $mode, $file, :$explain };
 }
