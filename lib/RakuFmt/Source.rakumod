@@ -7,6 +7,8 @@ use experimental :rakuast;
 class RakuFmt::Comment {
     has Int:D $.from is required;
     has Int:D $.to   is required;
+    #| True if nothing but whitespace precedes the comment on its line.
+    has Bool:D $.own-line is required;
 }
 
 #| A source file parsed into a RakuAST tree, with the lookups rules need to
@@ -148,7 +150,11 @@ class RakuFmt::Source {
             }
             my $to = embedded-comment-end($text, $at)
               // ($text.index("\n", $at) // $text.chars);
-            @!comments.push: RakuFmt::Comment.new(:from($at), :$to);
+            my $line-start = @!line-starts[self.line-of($at)];
+            @!comments.push: RakuFmt::Comment.new(
+              :from($at), :$to,
+              :own-line($text.substr($line-start, $at - $line-start).trim eq ''),
+            );
             $pos = $to;
         }
     }

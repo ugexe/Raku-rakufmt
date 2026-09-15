@@ -1,0 +1,17 @@
+use v6.e.PREVIEW;
+use Test;
+use RakuFmt;
+use RakuFmt::Rules;
+
+sub fmt(Str $text --> Str:D) {
+    RakuFmt.new(:rules(RakuFmt::Rule::AlignComments.new)).format($text).formatted
+}
+
+is fmt("my \$a = 1; # one\nmy \$bcd = 2;   # two\n"),
+  "my \$a = 1;    # one\nmy \$bcd = 2;  # two\n",
+  'trailing comments on consecutive lines line up';
+is fmt("my \$a = 1;   # one\n\nmy \$b = 2; # two\n"),
+  "my \$a = 1;   # one\n\nmy \$b = 2; # two\n",
+  'comments in different paragraphs are left alone';
+
+done-testing;

@@ -307,6 +307,44 @@ class RakuFmt::Rule::Indent does RakuFmt::Rule {
     }
 }
 
+#| Line up the trailing comments of consecutive lines.
+class RakuFmt::Rule::AlignComments does RakuFmt::Rule {
+    method name(--> Str:D) { 'align-comments' }
+    method description(--> Str:D) { 'line up trailing comments on consecutive lines' }
+
+    method edits($src, %options --> Iterable:D) {
+        my $text  = $src.text;
+        my $width = %options<width> // 80;
+        my @trailing = $src.comments.grep(!*.own-line).map(-> $c {
+            my $code-end = $c.from;
+            $code-end-- while $text.substr($code-end - 1, 1) eq ' ' | "\t";
+            %( :comment($c), :$code-end, :line($src.line-of($c.from)),
+               :column($src.column-of($code-end)) )
+        });
+        my @groups;
+        for @trailing -> $t {
+            if @groups && @groups.tail.tail<line> == $t<line> - 1 {
+                @groups.tail.push($t);
+            }
+            else {
+                @groups.push([$t]);
+            }
+        }
+        gather for @groups.grep(* > 1) -> @group {
+            my $target = @group.map(*<column>).max + 2;
+            # Lining up far to the right is worse than not lining up.
+            next if $target > $width;
+            for @group -> %t {
+                my $spaces = $target - %t<column>;
+                my $gap = $text.substr(%t<code-end>, %t<comment>.from - %t<code-end>);
+                take self.edit(%t<code-end>, %t<comment>.from, ' ' x $spaces,
+                  "align with the comments on lines {@group.head<line> + 1}..{@group.tail<line> + 1}")
+                  if $gap ne ' ' x $spaces;
+            }
+        }
+    }
+}
+
 package RakuFmt::Rules {
     my @builtin-rules = (
         RakuFmt::Rule::TrailingWhitespace,
@@ -314,6 +352,7 @@ package RakuFmt::Rules {
         RakuFmt::Rule::CommaSpacing,
         RakuFmt::Rule::SignatureWrap,
         RakuFmt::Rule::Indent,
+        RakuFmt::Rule::AlignComments,
     ).map(*.new);
 
     #| The rules that come with rakufmt, in the order they run.
