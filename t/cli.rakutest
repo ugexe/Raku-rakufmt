@@ -35,6 +35,16 @@ subtest 'a number option takes the next argument as its value' => {
     is %r<exitcode>, 2, '--indent without a value is a usage error';
 }
 
+subtest 'modes do not combine' => {
+    my $copy = $*TMPDIR.add("rakufmt-modes-$*PID.raku");
+    $copy.spurt($root.add($messy).slurp);
+    END $copy.unlink;
+    my %r = rakufmt('--check', '--write', $copy);
+    is %r<exitcode>, 2, '--check with --write is a usage error';
+    ok %r<err>.starts-with('Usage:'), '--check with --write prints the usage';
+    is $copy.slurp, $root.add($messy).slurp, '--check with --write does not rewrite the file';
+}
+
 subtest 'rules are named on the command line' => {
     my %r = rakufmt('--enable-rule', 'single-quotes', '--disable-rule=indent', '--disable-rule=align-comments', '--check', $tidy);
     is %r<exitcode>, 1, '--enable-rule with a separate value turns on a rule';

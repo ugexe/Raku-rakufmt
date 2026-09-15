@@ -16,7 +16,7 @@ my subset RuleNames of Positional where { !.defined || .all ~~ RuleName };
 my subset Columns of IntStr where * >= 0;
 
 #| What is done with a file once it is formatted.
-my enum Mode <Print Check>;
+my enum Mode <Print Check Write>;
 
 #| A file to format, or standard input.
 my subset Input where IO::Path:D | IO::Handle:D;
@@ -51,6 +51,20 @@ multi sub MAIN(
     --> Nil
 ) {
     format-paths @paths, Check, :$enable-rule, :$disable-rule, :$indent, :$width, :@include;
+}
+
+#| Rewrite the files in place
+multi sub MAIN(
+    *@paths,
+    Bool :w(:$write)! where .so,
+    RuleNames :$enable-rule,
+    RuleNames :$disable-rule,
+    Columns :$indent = <4>,
+    Columns :$width = <80>,
+    :I(:@include),
+    --> Nil
+) {
+    format-paths @paths, Write, :$enable-rule, :$disable-rule, :$indent, :$width, :@include;
 }
 
 #| Show the rules
@@ -93,6 +107,14 @@ multi sub report(Print, Input $, RakuFmt::Result:D $result --> Nil) {
 multi sub report(Check, Input $file, RakuFmt::Result:D $result --> Bool:D) {
     say "{name-of($file)} would be reformatted" if $result.changed;
     $result.changed
+}
+
+multi sub report(Write, IO::Handle:D $, RakuFmt::Result:D $result --> Nil) {
+    print $result.formatted;
+}
+
+multi sub report(Write, IO::Path:D $file, RakuFmt::Result:D $result --> Nil) {
+    $file.spurt($result.formatted) if $result.changed;
 }
 
 #| Runs C<&handle> on the one file C<@paths> names, and returns True if
