@@ -43,6 +43,10 @@ subtest 'rules are named on the command line' => {
     %r = rakufmt('--enable-rule=nope', $messy);
     is %r<exitcode>, 2, 'an unknown rule is a usage error';
     ok %r<err>.starts-with('Usage:'), 'an unknown rule prints the usage';
+
+    %r = rakufmt('--enable-rule=single-quotes', '--check', $tidy, $messy);
+    is %r<exitcode>, 1, 'options reach the process each of several files is formatted by';
+    is %r<out>, "$tidy would be reformatted\n$messy would be reformatted\n", 'every file of several is formatted';
 }
 
 subtest '--help' => {

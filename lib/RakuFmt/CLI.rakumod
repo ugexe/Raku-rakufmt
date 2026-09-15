@@ -21,7 +21,10 @@ my enum Mode <Print Check>;
 #| A file to format, or standard input.
 my subset Input where IO::Path:D | IO::Handle:D;
 
-proto sub MAIN(| --> Nil) is export {*}
+proto sub MAIN(|args --> Nil) is export {
+    my $*MAIN-ARGS = args;
+    {*}
+}
 
 #| Print the formatted files
 multi sub MAIN(
@@ -92,9 +95,13 @@ multi sub report(Check, Input $file, RakuFmt::Result:D $result --> Bool:D) {
     $result.changed
 }
 
-#| Runs C<&handle> on each file C<@paths> names, and returns True if
-#| C<&handle> returns something true for any of them.
+#| Runs C<&handle> on the one file C<@paths> names, and returns True if
+#| C<&handle> returns something true. Several files are each handled by a
+#| process of their own, and True is returned if any of those fail.
 sub per-file(@paths, &handle, :@include --> Bool:D) {
+    my @raku = $*EXECUTABLE.absolute,
+      |$*REPO.repo-chain.grep(CompUnit::Repository::FileSystem).map({ '-I' ~ .prefix.absolute });
+
     # Parsing a file runs its `use` statements, so their modules must be
     # found.
     for @include.reverse {
@@ -103,8 +110,20 @@ sub per-file(@paths, &handle, :@include --> Bool:D) {
     }
 
     my @files = @paths ?? @paths.map(&files-in) !! $*IN;
-    my @failed = @files.grep(&handle);
+    return so handle(@files.head) if @files == 1;
+
+    # Parsing a file runs its BEGIN time code, which leaves its packages
+    # behind for the files parsed after it.
+    my @options = command-line-options($*MAIN-ARGS.hash);
+    my @failed  = @files.grep: { run(|@raku, $*PROGRAM.absolute, |@options, '--', argument-of($_)).exitcode };
     so @failed
+}
+
+#| MAIN's named arguments, written back as command line options.
+sub command-line-options(%named --> Seq:D) {
+    %named.map: -> (:key($name), :$value) {
+        |$value.map: { $_ ~~ Bool ?? ($_ ?? "--$name" !! "--/$name") !! "--$name=$_" }
+    }
 }
 
 multi sub files-in('-' --> IO::Handle:D) { $*IN }
@@ -120,3 +139,6 @@ sub raku-files(IO::Path:D $dir --> Seq:D) {
 
 multi sub name-of(IO::Handle:D $ --> Str:D) { '<stdin>' }
 multi sub name-of(IO::Path:D $file --> Str:D) { ~$file }
+
+multi sub argument-of(IO::Handle:D $ --> Str:D) { '-' }
+multi sub argument-of(IO::Path:D $file --> Str:D) { ~$file }
