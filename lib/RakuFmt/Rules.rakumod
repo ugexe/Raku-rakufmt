@@ -67,9 +67,101 @@ class RakuFmt::Rule::TrailingWhitespace does RakuFmt::Rule {
     }
 }
 
+#| One space on each side of an infix operator.
+class RakuFmt::Rule::InfixSpacing does RakuFmt::Rule {
+    method name(--> Str:D) { 'infix-spacing' }
+    method description(--> Str:D) { 'one space around infix operators, `=` in declarations and defaults, and `=>` (ranges stay tight)' }
+
+    my constant @tight = '..', '^..', '..^', '^..^';
+
+    method edits($src, % --> Iterable:D) {
+        my $text = $src.text;
+        # One space between from and the operator at op-from, and between
+        # the end of the operator and to, when only horizontal space is
+        # there now. A line break next to an operator is the author's layout.
+        sub around(Int:D $from, Int:D $op-from, Str:D $op, Int:D $to --> Seq:D) {
+            gather for ($from, $op-from), ($op-from + $op.chars, $to) -> ($a, $b) {
+                next unless $a <= $b;
+                my $gap = $text.substr($a, $b - $a);
+                next unless $gap ~~ / ^ \h* $ /;
+                # Padding that lines the operator up with the one on the
+                # line above or below is kept.
+                next if $b == $op-from && $gap.chars > 1 && aligned($src, $op-from, $op);
+                take self.edit($a, $b, ' ', "around `$op`") if $gap ne ' ';
+            }
+        }
+
+        gather {
+            for $src.nodes-of(RakuAST::ApplyInfix) -> $apply {
+                my $infix = $apply.infix;
+                my $left  = $apply.left;
+                my $right = $apply.right;
+                next unless $infix.origin && $left.origin && $right.origin;
+                my $op = $src.text-of($infix);
+                next if $op eq any @tight;
+                take $_ for around($left.origin.to, $infix.origin.from, $op, $right.origin.from);
+            }
+
+            # `my $x=1` and `has $.x=1`. The initializer's span starts at
+            # its operator.
+            for $src.nodes-of(RakuAST::Initializer::Assign, RakuAST::Initializer::Bind) -> $init {
+                my $expression = $init.expression;
+                next unless $expression && $expression.origin;
+                my $op-from = $init.origin.from;
+                my $op = $text.substr($op-from, 2) eq ':=' ?? ':=' !! '=';
+                my $from = $op-from;
+                $from-- while $from > 0 && $text.substr($from - 1, 1) eq ' ' | "\t";
+                take $_ for around($from, $op-from, $op, $expression.origin.from);
+            }
+
+            # `:$precision=2` in a signature.
+            for $src.nodes-of(RakuAST::Parameter) -> $param {
+                my $default = $param.default;
+                my $target  = $param.target;
+                next unless $default && $default.origin && $target && $target.origin;
+                my $gap = $text.substr($target.origin.to, $default.origin.from - $target.origin.to);
+                next unless $gap ~~ / ^ \h* '=' \h* $ /;
+                my $op-from = $target.origin.to + $gap.index('=');
+                take $_ for around($target.origin.to, $op-from, '=', $default.origin.from);
+            }
+
+            # `name=>'square'`. The key of a pair is a Str, not a node, so
+            # the arrow is found after the key at the start of the span.
+            for $src.nodes-of(RakuAST::FatArrow) -> $pair {
+                my $value = $pair.value;
+                next unless $value && $value.origin;
+                my $key-end = $pair.origin.from + $pair.key.chars;
+                next unless $text.substr($pair.origin.from, $pair.key.chars) eq $pair.key;
+                my $gap = $text.substr($key-end, $value.origin.from - $key-end);
+                next unless $gap ~~ / ^ \h* '=>' \h* $ /;
+                take $_ for around($key-end, $key-end + $gap.index('=>'), '=>', $value.origin.from);
+            }
+        }
+    }
+}
+
+# True if the same operator, after a space, is at the same column on a
+# nearby line of the same paragraph.
+sub aligned($src, Int:D $op-from, Str:D $op --> Bool:D) {
+    my $text   = $src.text;
+    my $line   = $src.line-of($op-from);
+    my $column = $src.column-of($op-from);
+    for -1, 1 -> $direction {
+        for 1..3 -> $distance {
+            my $l = $line + $direction * $distance;
+            last unless 0 <= $l < $src.line-count;
+            last unless $text.substr($src.line-start($l), $src.line-end($l) - $src.line-start($l)).trim;
+            my $at = $src.line-start($l) + $column;
+            return True if $at < $src.line-end($l) && $text.substr($at - 1, $op.chars + 2) eq " $op ";
+        }
+    }
+    False
+}
+
 package RakuFmt::Rules {
     my @builtin-rules = (
         RakuFmt::Rule::TrailingWhitespace,
+        RakuFmt::Rule::InfixSpacing,
     ).map(*.new);
 
     #| The rules that come with rakufmt, in the order they run.

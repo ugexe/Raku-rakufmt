@@ -1,0 +1,27 @@
+use v6.e.PREVIEW;
+use Test;
+use RakuFmt;
+use RakuFmt::Rules;
+
+sub fmt(Str $text --> Str:D) {
+    RakuFmt.new(:rules(RakuFmt::Rule::InfixSpacing.new)).format($text).formatted
+}
+
+is fmt("my \$x = 1+2*3;\n"), "my \$x = 1 + 2 * 3;\n",
+  'spaces go around arithmetic operators';
+is fmt("my \$x=1;\n"), "my \$x = 1;\n",
+  'spaces go around `=` in a declaration';
+is fmt("sub f(:\$x=2) \{ }\n"), "sub f(:\$x = 2) \{ }\n",
+  'spaces go around `=` of a parameter default';
+is fmt("my %h = a=>1;\n"), "my %h = a => 1;\n",
+  'spaces go around `=>`';
+is fmt("say 1..10;\n"), "say 1..10;\n",
+  'a range stays tight';
+is fmt("my \$x = 1 +\n  2;\n"), "my \$x = 1 +\n  2;\n",
+  'a line break next to an operator is kept';
+is fmt("my \$ab   = 1;\nmy \$abcd = 2;\n"), "my \$ab   = 1;\nmy \$abcd = 2;\n",
+  'padding that lines up `=` with the next line is kept';
+is fmt("say \"1+2\";\n"), "say \"1+2\";\n",
+  'text in a string is not touched';
+
+done-testing;

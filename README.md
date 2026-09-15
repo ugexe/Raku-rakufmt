@@ -11,6 +11,7 @@ possible.
 | Rule | What it does |
 |---|---|
 | `trailing-whitespace` | strips spaces at the end of lines and ends the file with one newline, except inside strings and heredoc bodies |
+| `infix-spacing` | one space around infix operators, `=` in declarations and parameter defaults, and `=>`. Ranges stay tight, a line break next to an operator stays, and padding that lines an operator up with a nearby line stays |
 
 ## How it works
 
@@ -21,7 +22,9 @@ possible.
    literals, regex literals and character class elements, Pod and declarator
    docs. Any other `#` starts a comment.
 3. **Collect edits.** Each rule in [RakuFmt::Rules](lib/RakuFmt/Rules.rakumod)
-   looks at node spans and returns replacements of source ranges.
+   looks at node spans and returns replacements of source ranges. The
+   infix rule, for example, replaces the text between the end of an operator's
+   left operand and the start of the operator.
 4. **Apply, reparse, compare.** The edits are applied and the result is parsed
    again. Its `.DEPARSE` output must be identical to the original's, or the
    rule is refused and nothing is written. The next rule works on the new tree.

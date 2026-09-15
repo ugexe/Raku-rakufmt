@@ -182,6 +182,16 @@ class RakuFmt::Source {
         ($from ..^ $to).first({ $!literal[$_] }).defined
     }
 
+    #| Zero based line number of a position.
+    method line-of(Int:D $pos --> Int:D) {
+        my ($lo, $hi) = 0, @!line-starts.end;
+        while $lo < $hi {
+            my $mid = ($lo + $hi + 1) div 2;
+            if @!line-starts[$mid] <= $pos { $lo = $mid } else { $hi = $mid - 1 }
+        }
+        $lo
+    }
+
     method line-count(--> Int:D) { +@!line-starts }
 
     method line-start(Int:D $line --> Int:D) { @!line-starts[$line] }
@@ -190,6 +200,8 @@ class RakuFmt::Source {
     method line-end(Int:D $line --> Int:D) {
         $line < @!line-starts.end ?? @!line-starts[$line + 1] - 1 !! $!text.chars
     }
+
+    method column-of(Int:D $pos --> Int:D) { $pos - @!line-starts[self.line-of($pos)] }
 
     #| Nodes of any of the given types.
     method nodes-of(*@types --> Seq:D) {
